@@ -270,8 +270,103 @@ function UserProfileUpload({ onProfileSaved }) {
 function App() {
   // Single pet profile: empty at first
   const [petProfile, setPetProfile] = useState(null); // null if none
-  // When profile is set, could later expand with timeline etc.
 
+  // NEW: Add state for timeline memories and modal open state
+  const [memories, setMemories] = useState([]); // Each memory: {date, text}
+  const [isAddMemoryOpen, setAddMemoryOpen] = useState(false);
+  const [newMemory, setNewMemory] = useState({ date: '', text: '' });
+
+  // ----------------- Memory Modal Component -----------------
+  // PUBLIC_INTERFACE
+  function AddMemoryModal({ show, onSave, onClose }) {
+    if (!show) return null;
+
+    const handleChange = e => {
+      const { name, value } = e.target;
+      setNewMemory(prev => ({ ...prev, [name]: value }));
+    };
+    const handleSubmit = e => {
+      e.preventDefault();
+      if (!newMemory.date || !newMemory.text.trim()) return; // required
+      onSave({ ...newMemory });
+      setNewMemory({ date: '', text: '' });
+    };
+    return (
+      <div className="modal-backdrop" tabIndex={-1} aria-modal="true" role="dialog" onClick={onClose}>
+        <div
+          className="modal-content"
+          style={{ minWidth: 333, maxWidth: 410 }}
+          onClick={e => e.stopPropagation()}
+        >
+          <h3 style={{ color: colorPalette.primary, fontWeight: 600, marginBottom: 10 }}>Add Memory</h3>
+          <form className="memory-form" onSubmit={handleSubmit} tabIndex={0}>
+            <label>
+              Date
+              <input
+                type="date"
+                name="date"
+                value={newMemory.date}
+                onChange={handleChange}
+                style={{marginBottom:10}}
+                required
+                aria-label="Memory Date"
+                autoFocus
+              />
+            </label>
+            <label>
+              Description
+              <textarea
+                name="text"
+                placeholder="Share a memory..."
+                value={newMemory.text}
+                onChange={handleChange}
+                rows={3}
+                style={{marginBottom:4}}
+                required
+                aria-label="Memory Description"
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-accent">Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------- Timeline UI -----------------
+  function Timeline({ items }) {
+    // Show reverse chronological (latest first)
+    if (!items.length) {
+      return <div className="empty-timeline">No memories yet. Click "Add Memory" to begin.</div>;
+    }
+    return (
+      <div className="timeline-container" style={{maxWidth:463,margin:"2.1em auto 0 auto",position:'relative'}}>
+        <div className="timeline-bar" />
+        {items
+          .slice() // avoid mutating original
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+          .map((m, i) => (
+            <div key={i} className="timeline-card" style={{marginBottom:"1.5em"}}>
+              <div style={{
+                position:'absolute',left:10,top:32,width:28,height:28,background:colorPalette.primary,
+                borderRadius:14,opacity:.15
+              }}></div>
+              <div className="card-body">
+                <div className="card-date-category">
+                  <span className="card-date">{m.date}</span>
+                </div>
+                <div className="card-desc">{m.text}</div>
+              </div>
+            </div>
+        ))}
+      </div>
+    );
+  }
+
+  // -- main --
   return (
     <div className="pmv-app app-light" style={rootStyle}>
       <nav className="pmv-navbar">
@@ -283,45 +378,73 @@ function App() {
         {!petProfile ? (
           <UserProfileUpload onProfileSaved={profile => setPetProfile(profile)} />
         ) : (
-          <section
-            className="pet-profile-card"
-            style={{
-              margin: "2em auto",
-              maxWidth: 430,
-              background: "#fff",
-              boxShadow: "0 2px 8px rgba(214, 181, 120, 0.10)",
-              padding: "2em 1.5em 1.7em 1.5em",
-              borderRadius: "1.2em",
-              display: "flex",
-              gap: "1.5em",
-              alignItems: "center",
-              flexDirection: "row"
-            }}
-            aria-label="Pet profile summary"
-          >
-            <div>
-              <img
-                className="pet-avatar"
-                src={petProfile.photo || "https://placehold.co/120x120?text=Pet"}
-                alt={`Avatar of ${petProfile.name}`}
-                style={{ width: 120, height: 120, borderRadius: 80, objectFit: "cover", border: "3px solid var(--primary)" }}
-              />
-            </div>
-            <div>
-              <h2 style={{ color: "#835D09", marginBottom: 5 }}>{petProfile.name}</h2>
-              <div className="pet-details" style={{ marginBottom: 7 }}>
-                <span>
-                  Species: <span style={{ color: "#6EC6CA" }}>{petProfile.species || "—"}</span>
-                </span>
-                <span>
-                  Birthday: <span style={{ color: "#6EC6CA" }}>{petProfile.birthday || "—"}</span>
-                </span>
+          <>
+            <section
+              className="pet-profile-card"
+              style={{
+                margin: "2em auto",
+                maxWidth: 430,
+                background: "#fff",
+                boxShadow: "0 2px 8px rgba(214, 181, 120, 0.10)",
+                padding: "2em 1.5em 1.7em 1.5em",
+                borderRadius: "1.2em",
+                display: "flex",
+                gap: "1.5em",
+                alignItems: "center",
+                flexDirection: "row"
+              }}
+              aria-label="Pet profile summary"
+            >
+              <div>
+                <img
+                  className="pet-avatar"
+                  src={petProfile.photo || "https://placehold.co/120x120?text=Pet"}
+                  alt={`Avatar of ${petProfile.name}`}
+                  style={{ width: 120, height: 120, borderRadius: 80, objectFit: "cover", border: "3px solid var(--primary)" }}
+                />
               </div>
-              {petProfile.bio && (
-                <div className="pet-bio" style={{ color: "#786C51" }}>{petProfile.bio}</div>
-              )}
-            </div>
-          </section>
+              <div>
+                <h2 style={{ color: "#835D09", marginBottom: 5 }}>{petProfile.name}</h2>
+                <div className="pet-details" style={{ marginBottom: 7 }}>
+                  <span>
+                    Species: <span style={{ color: "#6EC6CA" }}>{petProfile.species || "—"}</span>
+                  </span>
+                  <span>
+                    Birthday: <span style={{ color: "#6EC6CA" }}>{petProfile.birthday || "—"}</span>
+                  </span>
+                </div>
+                {petProfile.bio && (
+                  <div className="pet-bio" style={{ color: "#786C51" }}>{petProfile.bio}</div>
+                )}
+              </div>
+            </section>
+            {/* Timeline & Add Memory */}
+            <section style={{ margin: "2.3em auto 0 auto", maxWidth: 480 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
+                <h3 style={{ margin: 0, color: "#45350E", fontWeight: 600, fontSize: "1.25em" }}>
+                  Timeline
+                </h3>
+                <button
+                  className="btn btn-accent"
+                  type="button"
+                  style={{padding:'7px 20px',fontSize:'1em'}}
+                  onClick={() => setAddMemoryOpen(true)}
+                  aria-label="Add Memory"
+                >
+                  + Add Memory
+                </button>
+              </div>
+              <Timeline items={memories} />
+            </section>
+            <AddMemoryModal
+              show={isAddMemoryOpen}
+              onSave={mem => {
+                setMemories(prev => [...prev, mem]);
+                setAddMemoryOpen(false);
+              }}
+              onClose={() => { setAddMemoryOpen(false); setNewMemory({ date: '', text: '' }); }}
+            />
+          </>
         )}
       </main>
       <footer className="pmv-footer">
