@@ -283,7 +283,11 @@ function App() {
   const [milestoneModal, setMilestoneModal] = useState({ open: false, editIdx: null });
   const [milestoneForm, setMilestoneForm] = useState({ title: '', date: '', description: '', image: '', imageName: '' });
   const [milestoneFormError, setMilestoneFormError] = useState('');
-  const [selectedPage, setSelectedPage] = useState('timeline'); // 'timeline' or 'photos' or 'milestones'
+  const [selectedPage, setSelectedPage] = useState('timeline'); // 'timeline' or 'photos' or 'milestones' or 'scrapbook'
+
+  // For Scrapbook: editable descriptions per entry
+  // The keys are in format `${type}-${index}`: type: 'profile', 'memory', 'photo', 'milestone'
+  const [scrapbookDescriptions, setScrapbookDescriptions] = useState({});
 
   // PUBLIC_INTERFACE
   function AddMemoryModal({ show, onSave, onClose }) {
@@ -541,6 +545,20 @@ function App() {
                 fontSize: "1.07em"
               }}
             >Photos</button>
+            <button
+              className={`navbar-btn${selectedPage === 'scrapbook' ? ' active' : ''}`}
+              onClick={() => setSelectedPage('scrapbook')}
+              type="button"
+              style={{
+                border: "none",
+                background: "none",
+                fontWeight: 500,
+                color: selectedPage === 'scrapbook' ? colorPalette.primary : "#B78943",
+                borderBottom: selectedPage === 'scrapbook' ? "2px solid var(--primary)" : "2px solid transparent",
+                cursor: "pointer",
+                fontSize: "1.07em"
+              }}
+            >Scrapbook</button>
           </div>
         )}
       </nav>
@@ -669,6 +687,16 @@ function App() {
                   />
                 )}
               </>
+            )}
+            {selectedPage === "scrapbook" && (
+              <ScrapbookPage
+                petProfile={petProfile}
+                memories={memories}
+                photos={photos}
+                milestones={milestones}
+                scrapbookDescriptions={scrapbookDescriptions}
+                setScrapbookDescriptions={setScrapbookDescriptions}
+              />
             )}
           </>
         )}
@@ -854,6 +882,161 @@ function MilestoneModal({ open, milestone, setMilestone, error, setError, onCanc
         </form>
       </div>
     </div>
+  );
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * ScrapbookPage - Prints all user pet data as editable cards. Supports live real-time updates and saving entry descriptions to app state.
+ */
+function ScrapbookPage({
+  petProfile,
+  memories,
+  photos,
+  milestones,
+  scrapbookDescriptions,
+  setScrapbookDescriptions,
+}) {
+  // Compose card entries. Each entry has: type, unique, date, title, image, defaultDesc
+  const entries = [];
+
+  // Pet profile (if available)
+  if (petProfile) {
+    entries.push({
+      type: "profile",
+      ref: "profile",
+      date: petProfile.birthday || "",
+      title: petProfile.name || "Pet Profile",
+      image: petProfile.photo || "",
+      subtitle: petProfile.species ? `Species: ${petProfile.species}` : "",
+      defaultDesc: petProfile.bio || "",
+      photoName: "",
+    });
+  }
+  // Timeline memories
+  (memories || []).forEach((m, idx) => {
+    entries.push({
+      type: "memory",
+      ref: `memory-${idx}`,
+      date: m.date,
+      title: "Memory",
+      image: "", // No associated image in base version
+      subtitle: "",
+      defaultDesc: m.text || "",
+      photoName: "",
+    });
+  });
+  // User photos
+  (photos || []).forEach((p, idx) => {
+    entries.push({
+      type: "photo",
+      ref: `photo-${idx}`,
+      date: "",
+      title: "Photo",
+      image: p.url,
+      subtitle: p.name || "",
+      defaultDesc: "",
+      photoName: p.name || "",
+    });
+  });
+  // Milestones
+  (milestones || []).forEach((m, idx) => {
+    entries.push({
+      type: "milestone",
+      ref: `milestone-${idx}`,
+      date: m.date,
+      title: m.title || "Milestone",
+      image: m.image,
+      subtitle: "",
+      defaultDesc: m.description || "",
+      photoName: m.imageName || "",
+    });
+  });
+
+  // Handler for updating descriptions per entry
+  function handleDescChange(ref, val) {
+    setScrapbookDescriptions(prev => ({
+      ...prev,
+      [ref]: val,
+    }));
+  }
+
+  // Unified rendering
+  if (!entries.length) {
+    return (
+      <section className="scrapbook-view">
+        <h3 style={{ color: "#b8923c", textAlign: "center", marginTop: 25 }}>Your Scrapbook</h3>
+        <div className="empty-timeline" style={{ fontSize: "1.13em", marginTop: 36 }}>
+          No scrapbook entries yet.<br />Add a profile, memory, photo or milestone!
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="scrapbook-view" style={{ maxWidth: 900, margin: "2.2em auto 0 auto" }}>
+      <h3 style={{ color: "#b8923c", textAlign: "center", marginTop: 5, fontWeight: 600 }}>Your Pet's Scrapbook</h3>
+      <div className="scrapbook-grid">
+        {entries
+          .sort((a, b) => {
+            // Place profile at top, then sort by date descending, then other items without date after
+            if (a.type === "profile") return -1;
+            if (b.type === "profile") return 1;
+            if (a.date && b.date && a.date !== b.date) {
+              return (b.date || "").localeCompare(a.date || "");
+            }
+            return 0;
+          })
+          .map((e, idx) => (
+            <div key={e.ref} className={`scrapbook-card${e.type === "milestone" ? " milestone" : ""}`}>
+              {e.image && (
+                <img
+                  src={e.image}
+                  alt={e.photoName || e.title || "photo"}
+                  className="scrapbook-photo"
+                  style={{ marginBottom: 6 }}
+                />
+              )}
+              <div className="scrapbook-body">
+                {e.date && (
+                  <div className="scrapbook-date-category" style={{ marginBottom: 6 }}>
+                    <span className="card-date">{e.date}</span>
+                    <span className="scrapbook-category">{e.title}</span>
+                  </div>
+                )}
+                {!e.date && <div className="scrapbook-category" style={{ marginBottom: 6 }}>{e.title}</div>}
+                {e.subtitle && (
+                  <div style={{ color: "#8e6c24", fontSize: "0.99em", marginBottom: 4 }}>{e.subtitle}</div>
+                )}
+                <textarea
+                  className="scrapbook-desc"
+                  value={scrapbookDescriptions[e.ref] ?? e.defaultDesc}
+                  placeholder={`Write a special note about this ${e.title.toLowerCase()}...`}
+                  onChange={ev => handleDescChange(e.ref, ev.target.value)}
+                  onBlur={ev => handleDescChange(e.ref, ev.target.value)}
+                  style={{
+                    minHeight: 38,
+                    width: "100%",
+                    border: "1.1px solid #ebd39a",
+                    borderRadius: 6,
+                    background: "#fff8e1",
+                    resize: "vertical",
+                    marginBottom: 4,
+                    color: "#635018",
+                    fontSize: "1.06em",
+                  }}
+                  aria-label={`${e.title} description`}
+                />
+              </div>
+            </div>
+          ))}
+      </div>
+      <div className="print-actions">
+        <span style={{ color: "#b4b099", fontSize: "0.99em" }}>
+          Tip: Use your browser's Print to save or share your Scrapbook!
+        </span>
+      </div>
+    </section>
   );
 }
 
