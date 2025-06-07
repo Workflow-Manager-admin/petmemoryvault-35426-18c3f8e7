@@ -278,7 +278,12 @@ function App() {
 
   // New: Photos state
   const [photos, setPhotos] = useState([]); // Each: { url: string, name: string }
-  const [selectedPage, setSelectedPage] = useState('timeline'); // 'timeline' or 'photos'
+  // Milestones state: each { title, date, description, image (URL), imageName }
+  const [milestones, setMilestones] = useState([]); 
+  const [milestoneModal, setMilestoneModal] = useState({ open: false, editIdx: null });
+  const [milestoneForm, setMilestoneForm] = useState({ title: '', date: '', description: '', image: '', imageName: '' });
+  const [milestoneFormError, setMilestoneFormError] = useState('');
+  const [selectedPage, setSelectedPage] = useState('timeline'); // 'timeline' or 'photos' or 'milestones'
 
   // PUBLIC_INTERFACE
   function AddMemoryModal({ show, onSave, onClose }) {
@@ -509,6 +514,20 @@ function App() {
               }}
             >Timeline</button>
             <button
+              className={`navbar-btn${selectedPage === 'milestones' ? ' active' : ''}`}
+              onClick={() => setSelectedPage('milestones')}
+              type="button"
+              style={{
+                border: "none",
+                background: "none",
+                fontWeight: 500,
+                color: selectedPage === 'milestones' ? colorPalette.primary : "#B78943",
+                borderBottom: selectedPage === 'milestones' ? "2px solid var(--primary)" : "2px solid transparent",
+                cursor: "pointer",
+                fontSize: "1.07em"
+              }}
+            >Milestones</button>
+            <button
               className={`navbar-btn${selectedPage === 'photos' ? ' active' : ''}`}
               onClick={() => setSelectedPage('photos')}
               type="button"
@@ -602,6 +621,52 @@ function App() {
                 onAddPhoto={photo => setPhotos(prev => [...prev, photo])}
               />
             )}
+            {selectedPage === "milestones" && (
+              <>
+                <MilestonesPage
+                  milestones={milestones}
+                  onAdd={() => {
+                    setMilestoneForm({ title: '', date: '', description: '', image: '', imageName: '' });
+                    setMilestoneModal({ open: true, editIdx: null });
+                    setMilestoneFormError('');
+                  }}
+                  onEdit={idx => {
+                    const m = milestones[idx];
+                    setMilestoneForm({ ...m });
+                    setMilestoneModal({ open: true, editIdx: idx });
+                    setMilestoneFormError('');
+                  }}
+                />
+                {milestoneModal.open && (
+                  <MilestoneModal
+                    open={milestoneModal.open}
+                    milestone={milestoneForm}
+                    setMilestone={setMilestoneForm}
+                    error={milestoneFormError}
+                    setError={setMilestoneFormError}
+                    onCancel={() => { setMilestoneModal({ open: false, editIdx: null }); setMilestoneFormError(''); }}
+                    onSave={() => {
+                      if (!milestoneForm.title.trim() || !milestoneForm.date) {
+                        setMilestoneFormError("Please provide a title and date.");
+                        return;
+                      }
+                      setMilestones(prev => {
+                        if (milestoneModal.editIdx === null) {
+                          // Add new
+                          return [...prev, { ...milestoneForm }];
+                        } else {
+                          // Edit
+                          return prev.map((item, idx) => 
+                            idx === milestoneModal.editIdx ? { ...milestoneForm } : item
+                          );
+                        }
+                      });
+                      setMilestoneModal({ open: false, editIdx: null });
+                    }}
+                  />
+                )}
+              </>
+            )}
           </>
         )}
       </main>
@@ -610,6 +675,170 @@ function App() {
           © {new Date().getFullYear()} PetMemoryVault · Celebrate every pawprint
         </span>
       </footer>
+    </div>
+  );
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * MilestonesPage - List milestones and allow add/edit, fully in app state.
+ */
+function MilestonesPage({ milestones, onAdd, onEdit }) {
+  return (
+    <section style={{ maxWidth: 540, margin: "2.4em auto 0 auto" }} className="milestones-view">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
+        <h3 style={{ margin: 0, color: "#45350E", fontWeight: 600, fontSize: "1.21em" }}>
+          Milestones
+        </h3>
+        <button
+          className="btn btn-accent"
+          type="button"
+          aria-label="Add Milestone"
+          onClick={onAdd}
+          style={{ padding: "7px 20px", fontSize: "1em" }}
+        >
+          + Add Milestone
+        </button>
+      </div>
+      {!milestones.length && (
+        <div className="empty-timeline" style={{ marginTop: 28, marginBottom: 32 }}>
+          No milestones to show yet.<br />Add a milestone to celebrate special moments!
+        </div>
+      )}
+      {milestones.length > 0 && (
+        <div className="milestones-list">
+          {milestones
+            .slice()
+            .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+            .map((m, idx) => (
+              <div key={idx} className="timeline-card milestone" style={{marginBottom:"1.5em", position:"relative"}}>
+                {m.image && (
+                  <img src={m.image} alt={m.imageName||'Milestone photo'} className="card-photo" style={{marginRight:10}} />
+                )}
+                <div className="card-body">
+                  <div className="card-date-category">
+                    <span className="card-date">{m.date}</span>
+                    <span className="card-category">Milestone</span>
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: "1.14em", color: "#a07a31", marginBottom: 7 }}>{m.title}</div>
+                  {m.description && (<div className="card-desc">{m.description}</div>)}
+                  <div className="card-actions">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      style={{ marginTop:4, fontSize:"0.96em" }}
+                      onClick={() => onEdit(idx)}
+                      aria-label="Edit Milestone"
+                    >Edit</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * MilestoneModal - Modal dialog for add/edit milestone (keeps local controlled state).
+ */
+function MilestoneModal({ open, milestone, setMilestone, error, setError, onCancel, onSave }) {
+  if (!open) return null;
+  const { title, date, description, image, imageName } = milestone;
+  function handleInput(e) {
+    const { name, value } = e.target;
+    setMilestone(prev => ({ ...prev, [name]: value }));
+    setError('');
+  }
+  function handleFileInput(e) {
+    const file = e.target.files && e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = evt => {
+        setMilestone(prev => ({ ...prev, image: evt.target.result, imageName: file.name }));
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setMilestone(prev => ({ ...prev, image: '', imageName: '' }));
+    }
+    e.target.value = '';
+  }
+
+  return (
+    <div className="modal-backdrop" tabIndex={-1} aria-modal="true" role="dialog" onClick={onCancel}>
+      <div
+        className="modal-content"
+        style={{ minWidth: 343, maxWidth: 480 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 style={{ color: colorPalette.primary, fontWeight: 600, marginBottom: 13, marginTop:3 }}>
+          {milestone && milestone.imageName ? 'Edit Milestone' : 'Add Milestone'}
+        </h3>
+        <form className="memory-form" onSubmit={e => { e.preventDefault(); onSave(); }} tabIndex={0}>
+          <label>
+            Title<span style={{color:'#e87a41'}}>*</span>
+            <input
+              type="text"
+              name="title"
+              value={title}
+              onChange={handleInput}
+              required
+              aria-label="Milestone Title"
+              autoFocus
+              placeholder="e.g. First Birthday"
+              style={{marginBottom:8}}
+            />
+          </label>
+          <label>
+            Date<span style={{color:'#e87a41'}}>*</span>
+            <input
+              type="date"
+              name="date"
+              value={date}
+              onChange={handleInput}
+              required
+              aria-label="Milestone Date"
+              style={{marginBottom:10}}
+            />
+          </label>
+          <label>
+            Description
+            <textarea
+              name="description"
+              placeholder="Describe this special moment (optional)"
+              value={description}
+              onChange={handleInput}
+              rows={3}
+              style={{marginBottom:4}}
+              aria-label="Milestone Description"
+            />
+          </label>
+          <label>
+            Image (optional)
+            {image && (
+              <div>
+                <img src={image} alt={imageName||'Milestone'} className="photo-preview" style={{maxHeight:60, marginBottom:3, marginTop:3}}/>
+                <span style={{color:"#7b6a3d", fontSize:"0.97em"}}>{imageName}</span>
+              </div>
+            )}
+            <input
+              type="file"
+              name="photo"
+              accept="image/*"
+              onChange={handleFileInput}
+              style={{marginTop:6, marginBottom:2}}
+              aria-label="Milestone Image"
+            />
+          </label>
+          {error && <div style={{ color: "#ca5842", marginTop: 5, fontSize: "0.99em" }}>{error}</div>}
+          <div className="modal-actions">
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+            <button type="submit" className="btn btn-accent">Save</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
