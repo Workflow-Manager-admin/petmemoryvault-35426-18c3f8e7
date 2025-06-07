@@ -696,6 +696,13 @@ function App() {
                 milestones={milestones}
                 scrapbookDescriptions={scrapbookDescriptions}
                 setScrapbookDescriptions={setScrapbookDescriptions}
+                // The below ensures Scrapbook receives current state pointers for live instant updates.
+                key={[
+                  petProfile ? petProfile.name + petProfile.birthday + petProfile.photo : "",
+                  JSON.stringify(memories),
+                  JSON.stringify(photos),
+                  JSON.stringify(milestones)
+                ].join("-")}
               />
             )}
           </>
