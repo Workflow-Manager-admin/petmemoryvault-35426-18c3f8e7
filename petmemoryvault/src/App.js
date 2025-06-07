@@ -22,17 +22,12 @@ const PawIllustration = ({ style }) => (
   </svg>
 );
 
-/**
- * Main PetMemoryVault Application
- * - Handles page layout, modal, sidebar, and view switching.
- */
 const colorPalette = {
-  primary: "#FFB347", // Orange
-  secondary: "#FFF8E1", // Off-white
-  accent: "#6EC6CA", // Aquamarine
+  primary: "#FFB347",
+  secondary: "#FFF8E1",
+  accent: "#6EC6CA",
 };
 
-// Main theme styles (inline for demo, use CSS for prod)
 const rootStyle = {
   "--primary": colorPalette.primary,
   "--secondary": colorPalette.secondary,
@@ -48,27 +43,184 @@ const rootStyle = {
 };
 
 /**
- * Pet Profile Component
- * Top-profile card.
+ * Pet Profile Component with Editable and Upload UI
+ * - Allows user to upload a pet photo, and edit name/species/birthday/bio inline.
  */
 // PUBLIC_INTERFACE
-function PetProfile({ profile }) {
+function PetProfile({ profile, onProfileUpdate }) {
+  const [editMode, setEditMode] = useState(false);
+  const [form, setForm] = useState(profile);
+
+  React.useEffect(() => {
+    setForm(profile);
+  }, [profile]);
+
+  const handleEditClick = () => setEditMode(true);
+
+  const handleInput = (e) => {
+    const { name, value, files } = e.target;
+    if (name === "photo" && files && files[0]) {
+      const file = files[0];
+      const url = URL.createObjectURL(file);
+      setForm((old) => ({ ...old, photo: url, _file: file }));
+    } else {
+      setForm((old) => ({ ...old, [name]: value }));
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setEditMode(false);
+    const { _file, ...updated } = form;
+    onProfileUpdate(updated);
+  };
+
   return (
-    <section className="pet-profile-card">
-      <img
-        className="pet-avatar"
-        src={profile.photo || "https://placekitten.com/120/120"}
-        alt={`Avatar of ${profile.name}`}
-      />
+    <section className="pet-profile-card" aria-label="Pet profile section">
       <div>
-        <h2>{profile.name || "Your Pet"}</h2>
-        <div className="pet-details">
-          <span>Species: {profile.species || "-"}</span>
-          <span>Birthday: {profile.birthday || "-"}</span>
-        </div>
-        <div className="pet-bio">
-          {profile.bio || "Click to edit your pet's story!"}
-        </div>
+        <label htmlFor="pet-photo-upload">
+          <img
+            className="pet-avatar"
+            src={form.photo || "https://placehold.co/120x120?text=Pet"}
+            alt={`Avatar of ${form.name || "your pet"}`}
+            style={{ cursor: "pointer" }}
+            title="Click to upload/change photo"
+          />
+        </label>
+        <input
+          id="pet-photo-upload"
+          type="file"
+          name="photo"
+          style={{ display: "none" }}
+          accept="image/*"
+          onChange={handleInput}
+        />
+      </div>
+      <div>
+        {!editMode ? (
+          <>
+            <h2 onClick={handleEditClick} style={{ cursor: "pointer", color: "#8D6711" }}>
+              {form.name || "Click to name your pet"}
+            </h2>
+            <div className="pet-details">
+              <span>
+                Species:{" "}
+                <span style={{ cursor: "pointer" }} onClick={handleEditClick}>
+                  {form.species || "—"}
+                </span>
+              </span>
+              <span>
+                Birthday:{" "}
+                <span style={{ cursor: "pointer" }} onClick={handleEditClick}>
+                  {form.birthday || "—"}
+                </span>
+              </span>
+            </div>
+            <div
+              className="pet-bio"
+              style={{ cursor: "pointer", color: "#786C51" }}
+              onClick={handleEditClick}
+            >
+              {form.bio || "Click to add your pet's bio/story!"}
+            </div>
+            <button
+              className="btn btn-sm btn-accent"
+              style={{ marginTop: 6 }}
+              onClick={handleEditClick}
+              aria-label="Edit pet profile"
+            >
+              Edit
+            </button>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <h2>
+              <input
+                type="text"
+                name="name"
+                required
+                placeholder="Pet Name"
+                value={form.name}
+                onChange={handleInput}
+                style={{
+                  fontSize: "1.17em",
+                  width: "98%",
+                  borderRadius: "6px",
+                  border: "1.2px solid #eddcc2",
+                  marginBottom: 6,
+                  padding: "6px 8px",
+                }}
+                aria-label="Pet Name"
+                autoFocus
+              />
+            </h2>
+            <div className="pet-details">
+              <span>
+                Species:{" "}
+                <input
+                  type="text"
+                  name="species"
+                  placeholder="Dog, Cat, etc."
+                  value={form.species}
+                  onChange={handleInput}
+                  style={{
+                    width: 80,
+                    borderRadius: "4px",
+                    border: "1px solid #eddcc2",
+                    padding: "3px 6px",
+                  }}
+                  aria-label="Species"
+                />
+              </span>
+              <span>
+                Birthday:{" "}
+                <input
+                  type="date"
+                  name="birthday"
+                  value={form.birthday}
+                  onChange={handleInput}
+                  style={{
+                    width: 120,
+                    borderRadius: "4px",
+                    border: "1px solid #eddcc2",
+                    padding: "3px 6px",
+                  }}
+                  aria-label="Pet Birthday"
+                />
+              </span>
+            </div>
+            <textarea
+              name="bio"
+              value={form.bio}
+              onChange={handleInput}
+              rows={2}
+              placeholder="Describe your pet's personality/story!"
+              style={{
+                width: "98%",
+                marginTop: "9px",
+                borderRadius: "6px",
+                border: "1.2px solid #eddcc2",
+                padding: "7px 8px",
+                fontSize: "1em",
+              }}
+              aria-label="Pet Bio"
+            />
+            <div className="modal-actions" style={{ marginTop: 13 }}>
+              <button className="btn btn-accent btn-sm" type="submit">
+                Save
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                type="button"
+                onClick={() => {
+                  setEditMode(false); setForm(profile);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </section>
   );
@@ -111,7 +263,6 @@ function TimelineCard({ memory, onEdit, onShare }) {
 
 /**
  * Timeline List
- * - Always sorted newest-to-oldest. "Add Memory" button is provided at top of page by container.
  */
 // PUBLIC_INTERFACE
 function Timeline({ memories, onEdit, onShare }) {
@@ -140,7 +291,6 @@ function Timeline({ memories, onEdit, onShare }) {
 
 /**
  * Add Memory Modal
- * - Allows photo upload, description, date, category, milestone flag.
  */
 function AddMemoryModal({ isOpen, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -172,7 +322,6 @@ function AddMemoryModal({ isOpen, onClose, onSave }) {
       alert("Please enter at least a date & description");
       return;
     }
-    // Send to parent
     onSave({ ...form, id: Date.now() });
     setForm({
       photo: null,
@@ -296,14 +445,11 @@ function Sidebar({ onGoScrapbook, onGoTimeline, onGoMilestones, onShare, selecte
   );
 }
 
-/** 
+/**
  * Scrapbook (printable view)
- * - Shows all photos and milestones (plus all memories for context), live updated and editable descriptions.
- * - Photos and milestones are grouped visually; description is editable inline.
  */
 // PUBLIC_INTERFACE
 function Scrapbook({ memories, onEdit }) {
-  // Show all memories, visually group photos and milestones
   const sorted = [...memories].sort(
     (a, b) => new Date(b.date) - new Date(a.date)
   );
@@ -363,8 +509,7 @@ function Scrapbook({ memories, onEdit }) {
 }
 
 /**
- * Share Modal
- * (Placeholder: Simulates a share link dialog)
+ * Share Modal (Placeholder)
  */
 function ShareModal({ isOpen, onClose }) {
   const shareUrl = "https://petmemoryvault.app/story/12345"; // Placeholder URL
@@ -435,76 +580,44 @@ function MilestonesView({ memories, onEdit, onShare }) {
 }
 
 /**
- * Main App Container
+ * Main App Container (No demo 'Bella' data anywhere)
  */
 function App() {
-  // Demo initial data
+  // Pet profile is empty initially
   const [petProfile, setPetProfile] = useState({
-    name: "Bella",
-    species: "Dog",
-    birthday: "2020-06-15",
+    name: "",
+    species: "",
+    birthday: "",
     photo: "",
-    bio: "Lover of treats, belly rubs, and long walks in the park.",
+    bio: "",
   });
-  const [memories, setMemories] = useState([
-    {
-      id: 1,
-      photo: "https://placekitten.com/280/160",
-      description: "Adopted Bella from the shelter 🎉",
-      date: "2020-07-01",
-      category: "Adoption",
-      isMilestone: true,
-    },
-    {
-      id: 2,
-      photo: "",
-      description: "First walk in the park. Bella met her first squirrel.",
-      date: "2020-07-10",
-      category: "First Walk",
-      isMilestone: false,
-    },
-    {
-      id: 3,
-      photo: "",
-      description: "Birthday celebration with doggie cake!",
-      date: "2021-06-15",
-      category: "Birthday",
-      isMilestone: true,
-    },
-  ]);
+  // Timeline/memories
+  const [memories, setMemories] = useState([]);
   const [modalAddOpen, setModalAddOpen] = useState(false);
   const [modalShareOpen, setModalShareOpen] = useState(false);
 
-  // view: timeline, scrapbook, milestones
   const [currentView, setCurrentView] = useState("timeline");
 
-  // -- Handlers --
   const handleAddMemory = (data) => {
     setMemories((prev) => [...prev, data]);
   };
   const handleEditMemory = (edited) => {
     setMemories((prev) => prev.map((m) => (m.id === edited.id ? edited : m)));
   };
-
-  // For share modal from timeline or scrapbook etc
+  const handlePetProfileUpdate = (updated) => setPetProfile(updated);
   const handleShare = () => setModalShareOpen(true);
 
-  // -- Page render logic
   let mainContent;
   if (currentView === "scrapbook") {
-    mainContent = (
-      <Scrapbook memories={memories} onEdit={handleEditMemory} />
-    );
+    mainContent = <Scrapbook memories={memories} onEdit={handleEditMemory} />;
   } else if (currentView === "milestones") {
     mainContent = (
       <MilestonesView memories={memories} onEdit={handleEditMemory} onShare={handleShare} />
     );
   } else {
-    // Timeline/Home
     mainContent = (
       <>
-        <PetProfile profile={petProfile} />
-        {/* Replace "Bella's memory" with Paw image and Add Memory prompt as a homepage hero */}
+        <PetProfile profile={petProfile} onProfileUpdate={handlePetProfileUpdate} />
         {memories.length === 0 && (
           <div
             style={{
@@ -535,7 +648,6 @@ function App() {
             </button>
           </div>
         )}
-        {/* Add Memory CTA always above timeline if timeline not empty */}
         {memories.length > 0 && (
           <div style={{ marginBottom: "1.75rem", textAlign: "center" }}>
             <button
@@ -547,7 +659,6 @@ function App() {
             </button>
           </div>
         )}
-        {/* Timeline always renders, shows prompt if empty */}
         <Timeline memories={memories} onEdit={handleEditMemory} onShare={handleShare} />
       </>
     );
@@ -562,9 +673,7 @@ function App() {
         <span className="navbar-linkset">
           <button
             className={
-              currentView === "timeline"
-                ? "navbar-btn active"
-                : "navbar-btn"
+              currentView === "timeline" ? "navbar-btn active" : "navbar-btn"
             }
             onClick={() => setCurrentView("timeline")}
           >
@@ -572,9 +681,7 @@ function App() {
           </button>
           <button
             className={
-              currentView === "scrapbook"
-                ? "navbar-btn active"
-                : "navbar-btn"
+              currentView === "scrapbook" ? "navbar-btn active" : "navbar-btn"
             }
             onClick={() => setCurrentView("scrapbook")}
           >
@@ -582,9 +689,7 @@ function App() {
           </button>
           <button
             className={
-              currentView === "milestones"
-                ? "navbar-btn active"
-                : "navbar-btn"
+              currentView === "milestones" ? "navbar-btn active" : "navbar-btn"
             }
             onClick={() => setCurrentView("milestones")}
           >
