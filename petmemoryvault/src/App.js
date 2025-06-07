@@ -1,6 +1,27 @@
 import React, { useState } from "react";
 import "./App.css";
 
+/*
+ * PAW ILLUSTRATION: SVG as a placeholder for the beautiful homepage image.
+ */
+const PawIllustration = ({ style }) => (
+  <svg
+    style={style}
+    width="128"
+    height="128"
+    viewBox="0 0 160 160"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-label="Paw print illustration"
+  >
+    <circle cx="38" cy="56" r="24" fill="#FFB347" stroke="#FFD9A6" strokeWidth="4" />
+    <circle cx="128" cy="56" r="24" fill="#FFB347" stroke="#FFD9A6" strokeWidth="4" />
+    <ellipse cx="83" cy="110" rx="36" ry="42" fill="#FFB347" stroke="#FFD9A6" strokeWidth="5" />
+    <circle cx="23" cy="28" r="13" fill="#FFD9A6" />
+    <circle cx="143" cy="28" r="13" fill="#FFD9A6" />
+  </svg>
+);
+
 /**
  * Main PetMemoryVault Application
  * - Handles page layout, modal, sidebar, and view switching.
@@ -90,10 +111,10 @@ function TimelineCard({ memory, onEdit, onShare }) {
 
 /**
  * Timeline List
+ * - Always sorted newest-to-oldest. "Add Memory" button is provided at top of page by container.
  */
 // PUBLIC_INTERFACE
 function Timeline({ memories, onEdit, onShare }) {
-  // Sort by date descending (latest first)
   const sorted = [...memories].sort(
     (a, b) => new Date(b.date) - new Date(a.date)
   );
@@ -275,22 +296,37 @@ function Sidebar({ onGoScrapbook, onGoTimeline, onGoMilestones, onShare, selecte
   );
 }
 
-/**
+/** 
  * Scrapbook (printable view)
+ * - Shows all photos and milestones (plus all memories for context), live updated and editable descriptions.
+ * - Photos and milestones are grouped visually; description is editable inline.
  */
 // PUBLIC_INTERFACE
 function Scrapbook({ memories, onEdit }) {
+  // Show all memories, visually group photos and milestones
+  const sorted = [...memories].sort(
+    (a, b) => new Date(b.date) - new Date(a.date)
+  );
   return (
     <section className="scrapbook-view">
       <h2>Printable Memory Scrapbook</h2>
       <div className="scrapbook-grid">
-        {memories.length === 0 && (
+        {sorted.length === 0 && (
           <div className="empty-timeline">
             No memories yet. Start by adding your first memory!
           </div>
         )}
-        {memories.map((m) => (
-          <div key={m.id} className={m.isMilestone ? "scrapbook-card milestone" : "scrapbook-card"}>
+        {sorted.map((m) => (
+          <div
+            key={m.id}
+            className={
+              m.isMilestone
+                ? "scrapbook-card milestone"
+                : m.photo
+                  ? "scrapbook-card"
+                  : "scrapbook-card"
+            }
+          >
             {m.photo && (
               <img src={m.photo} alt="memory" className="scrapbook-photo" />
             )}
@@ -301,14 +337,18 @@ function Scrapbook({ memories, onEdit }) {
               </div>
               <div
                 className="scrapbook-desc"
-                contentEditable // Allow live inline editing
+                contentEditable // PUBLIC_INTERFACE: allow live inline editing of description
                 suppressContentEditableWarning
                 spellCheck={true}
                 onBlur={(e) => onEdit({ ...m, description: e.target.textContent })}
+                aria-label="Edit description"
+                tabIndex={0}
+                style={{ outline: "none" }}
               >
                 {m.description}
               </div>
               {m.isMilestone && <div className="milestone-label">Milestone</div>}
+              {m.photo && <div style={{ color: "#FFA033", fontSize: "0.88em", marginTop: 2 }}>Photo</div>}
             </div>
           </div>
         ))}
@@ -460,18 +500,54 @@ function App() {
       <MilestonesView memories={memories} onEdit={handleEditMemory} onShare={handleShare} />
     );
   } else {
-    // Timeline
+    // Timeline/Home
     mainContent = (
       <>
         <PetProfile profile={petProfile} />
-        <div style={{ marginBottom: "1.75rem" }}>
-          <button
-            className="btn btn-accent"
-            onClick={() => setModalAddOpen(true)}
+        {/* Replace "Bella's memory" with Paw image and Add Memory prompt as a homepage hero */}
+        {memories.length === 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              background: "#fffef7",
+              borderRadius: "1.2em",
+              boxShadow: "0 2px 12px rgba(255,179,71,0.07)",
+              margin: "0 auto 2em auto",
+              padding: "2em 1em 1.75em 1em",
+              maxWidth: 520,
+            }}
           >
-            + Add Memory
-          </button>
-        </div>
+            <PawIllustration style={{ marginBottom: 16, width: 96, height: 96 }} />
+            <h2 style={{ color: colorPalette.primary, margin: "0.5em 0 0.2em 0" }}>
+              Welcome to Your Pet's Memory Vault!
+            </h2>
+            <div style={{ color: "#666", fontSize: "1.09em", marginBottom: 18, textAlign: "center" }}>
+              Celebrate every special moment—add your first memory, photo, or milestone.
+            </div>
+            <button
+              className="btn btn-accent"
+              style={{ fontSize: "1.11em", padding: "12px 36px" }}
+              onClick={() => setModalAddOpen(true)}
+            >
+              + Add Memory
+            </button>
+          </div>
+        )}
+        {/* Add Memory CTA always above timeline if timeline not empty */}
+        {memories.length > 0 && (
+          <div style={{ marginBottom: "1.75rem", textAlign: "center" }}>
+            <button
+              className="btn btn-accent"
+              style={{ fontSize: "1.06em", padding: "11px 32px" }}
+              onClick={() => setModalAddOpen(true)}
+            >
+              + Add Memory
+            </button>
+          </div>
+        )}
+        {/* Timeline always renders, shows prompt if empty */}
         <Timeline memories={memories} onEdit={handleEditMemory} onShare={handleShare} />
       </>
     );
