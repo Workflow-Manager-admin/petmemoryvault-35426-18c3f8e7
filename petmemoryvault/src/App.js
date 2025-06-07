@@ -636,6 +636,9 @@ function App() {
                     setMilestoneModal({ open: true, editIdx: idx });
                     setMilestoneFormError('');
                   }}
+                  onDelete={idx => {
+                    setMilestones(prev => prev.filter((_, i) => i !== idx));
+                  }}
                 />
                 {milestoneModal.open && (
                   <MilestoneModal
@@ -683,7 +686,7 @@ function App() {
  * PUBLIC_INTERFACE
  * MilestonesPage - List milestones and allow add/edit, fully in app state.
  */
-function MilestonesPage({ milestones, onAdd, onEdit }) {
+function MilestonesPage({ milestones, onAdd, onEdit, onDelete }) {
   return (
     <section style={{ maxWidth: 540, margin: "2.4em auto 0 auto" }} className="milestones-view">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
@@ -730,6 +733,17 @@ function MilestonesPage({ milestones, onAdd, onEdit }) {
                       onClick={() => onEdit(idx)}
                       aria-label="Edit Milestone"
                     >Edit</button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      style={{ marginTop:4, fontSize:"0.96em", background:'#fbe0e0', color:'#ac3c2f', border:"1.1px solid #fddede", marginLeft:6 }}
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to delete this milestone?')) {
+                          onDelete(idx);
+                        }
+                      }}
+                      aria-label="Delete Milestone"
+                    >Delete</button>
                   </div>
                 </div>
               </div>
