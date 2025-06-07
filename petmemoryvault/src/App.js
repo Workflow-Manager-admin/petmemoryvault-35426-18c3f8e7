@@ -271,23 +271,25 @@ function App() {
   // Single pet profile: empty at first
   const [petProfile, setPetProfile] = useState(null); // null if none
 
-  // NEW: Add state for timeline memories and modal open state
+  // Timeline state
   const [memories, setMemories] = useState([]); // Each memory: {date, text}
   const [isAddMemoryOpen, setAddMemoryOpen] = useState(false);
   const [newMemory, setNewMemory] = useState({ date: '', text: '' });
 
-  // ----------------- Memory Modal Component -----------------
+  // New: Photos state
+  const [photos, setPhotos] = useState([]); // Each: { url: string, name: string }
+  const [selectedPage, setSelectedPage] = useState('timeline'); // 'timeline' or 'photos'
+
   // PUBLIC_INTERFACE
   function AddMemoryModal({ show, onSave, onClose }) {
     if (!show) return null;
-
     const handleChange = e => {
       const { name, value } = e.target;
       setNewMemory(prev => ({ ...prev, [name]: value }));
     };
     const handleSubmit = e => {
       e.preventDefault();
-      if (!newMemory.date || !newMemory.text.trim()) return; // required
+      if (!newMemory.date || !newMemory.text.trim()) return;
       onSave({ ...newMemory });
       setNewMemory({ date: '', text: '' });
     };
@@ -336,9 +338,8 @@ function App() {
     );
   }
 
-  // ----------------- Timeline UI -----------------
+  // PUBLIC_INTERFACE
   function Timeline({ items }) {
-    // Show reverse chronological (latest first)
     if (!items.length) {
       return <div className="empty-timeline">No memories yet. Click "Add Memory" to begin.</div>;
     }
@@ -346,7 +347,7 @@ function App() {
       <div className="timeline-container" style={{maxWidth:463,margin:"2.1em auto 0 auto",position:'relative'}}>
         <div className="timeline-bar" />
         {items
-          .slice() // avoid mutating original
+          .slice()
           .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
           .map((m, i) => (
             <div key={i} className="timeline-card" style={{marginBottom:"1.5em"}}>
@@ -366,13 +367,163 @@ function App() {
     );
   }
 
-  // -- main --
+  // PUBLIC_INTERFACE
+  function PhotosPage({ photos, onAddPhoto }) {
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+
+    const handlePhotoChange = e => {
+      setUploadError('');
+      setUploading(true);
+      const file = e.target.files && e.target.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const url = evt.target.result;
+          onAddPhoto({ url, name: file.name });
+          setUploading(false);
+        };
+        reader.onerror = () => {
+          setUploadError('Error reading image file.');
+          setUploading(false);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setUploadError('Please select an image file.');
+        setUploading(false);
+      }
+      e.target.value = ''; // allow same file re-upload
+    };
+
+    return (
+      <section style={{ maxWidth: 520, margin: "2.6em auto 0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <h3 style={{ margin: 0, color: "#45350E", fontWeight: 600, fontSize: "1.23em" }}>
+            Photos
+          </h3>
+          <label
+            htmlFor="photo-upload-input"
+            style={{
+              background: "var(--primary)",
+              color: "#fff",
+              padding: "9px 18px",
+              borderRadius: 5,
+              fontWeight: 500,
+              fontSize: "1em",
+              cursor: "pointer",
+              border: "none",
+              boxShadow: "0 1px 5px #ffd17b42",
+              display: "inline-block"
+            }}
+            aria-label="Upload Photo"
+          >
+            + Upload Photo
+            <input
+              type="file"
+              id="photo-upload-input"
+              accept="image/*"
+              onChange={handlePhotoChange}
+              style={{ display: "none" }}
+            />
+          </label>
+        </div>
+        {uploadError && <div style={{ color: "#d37627", marginBottom: 10 }}>{uploadError}</div>}
+        {photos.length === 0 && (
+          <div className="empty-timeline" style={{marginTop: 32, marginBottom: 32}}>
+            No photos uploaded yet.<br/>Your pet's photo gallery will appear here.
+          </div>
+        )}
+        {photos.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+              gap: "1.3em",
+              marginTop: 18
+            }}
+            className="photos-gallery-grid"
+          >
+            {photos.map((photo, idx) => (
+              <div key={idx} style={{
+                background: "#fff",
+                borderRadius: "0.7em",
+                boxShadow: "0 1px 7px #ffd37611",
+                padding: 8,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                minHeight: 120
+              }}>
+                <img
+                  src={photo.url}
+                  alt={`Pet photo ${idx + 1}`}
+                  style={{
+                    width: "100%",
+                    maxWidth: 170,
+                    maxHeight: 140,
+                    objectFit: "cover",
+                    borderRadius: "0.5em",
+                    marginBottom: 7,
+                    background: "#ffe",
+                    border: "1.3px solid var(--primary)"
+                  }}
+                />
+                <div style={{
+                  fontSize: ".97em",
+                  color: "#A37F41",
+                  marginTop: 2,
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  maxWidth: 150
+                }}>{photo.name}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  // -- main render --
   return (
     <div className="pmv-app app-light" style={rootStyle}>
       <nav className="pmv-navbar">
         <span className="navbar-logo" style={{ color: colorPalette.primary }}>
           🐾 PetMemoryVault
         </span>
+        {petProfile && (
+          <div style={{ display: "flex", gap: "1.6em" }}>
+            <button
+              className={`navbar-btn${selectedPage === 'timeline' ? ' active' : ''}`}
+              onClick={() => setSelectedPage('timeline')}
+              type="button"
+              style={{
+                border: "none",
+                background: "none",
+                fontWeight: 500,
+                color: selectedPage === 'timeline' ? colorPalette.primary : "#B78943",
+                borderBottom: selectedPage === 'timeline' ? "2px solid var(--primary)" : "2px solid transparent",
+                cursor: "pointer",
+                fontSize: "1.07em"
+              }}
+            >Timeline</button>
+            <button
+              className={`navbar-btn${selectedPage === 'photos' ? ' active' : ''}`}
+              onClick={() => setSelectedPage('photos')}
+              type="button"
+              style={{
+                border: "none",
+                background: "none",
+                fontWeight: 500,
+                color: selectedPage === 'photos' ? colorPalette.primary : "#B78943",
+                borderBottom: selectedPage === 'photos' ? "2px solid var(--primary)" : "2px solid transparent",
+                cursor: "pointer",
+                fontSize: "1.07em"
+              }}
+            >Photos</button>
+          </div>
+        )}
       </nav>
       <main className="pmv-content" style={{ maxWidth: 600, margin: "0 auto" }}>
         {!petProfile ? (
@@ -418,32 +569,39 @@ function App() {
                 )}
               </div>
             </section>
-            {/* Timeline & Add Memory */}
-            <section style={{ margin: "2.3em auto 0 auto", maxWidth: 480 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
-                <h3 style={{ margin: 0, color: "#45350E", fontWeight: 600, fontSize: "1.25em" }}>
-                  Timeline
-                </h3>
-                <button
-                  className="btn btn-accent"
-                  type="button"
-                  style={{padding:'7px 20px',fontSize:'1em'}}
-                  onClick={() => setAddMemoryOpen(true)}
-                  aria-label="Add Memory"
-                >
-                  + Add Memory
-                </button>
-              </div>
-              <Timeline items={memories} />
-            </section>
-            <AddMemoryModal
-              show={isAddMemoryOpen}
-              onSave={mem => {
-                setMemories(prev => [...prev, mem]);
-                setAddMemoryOpen(false);
-              }}
-              onClose={() => { setAddMemoryOpen(false); setNewMemory({ date: '', text: '' }); }}
-            />
+            {selectedPage === "timeline" && (
+              <section style={{ margin: "2.3em auto 0 auto", maxWidth: 480 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
+                  <h3 style={{ margin: 0, color: "#45350E", fontWeight: 600, fontSize: "1.25em" }}>
+                    Timeline
+                  </h3>
+                  <button
+                    className="btn btn-accent"
+                    type="button"
+                    style={{padding:'7px 20px',fontSize:'1em'}}
+                    onClick={() => setAddMemoryOpen(true)}
+                    aria-label="Add Memory"
+                  >
+                    + Add Memory
+                  </button>
+                </div>
+                <Timeline items={memories} />
+                <AddMemoryModal
+                  show={isAddMemoryOpen}
+                  onSave={mem => {
+                    setMemories(prev => [...prev, mem]);
+                    setAddMemoryOpen(false);
+                  }}
+                  onClose={() => { setAddMemoryOpen(false); setNewMemory({ date: '', text: '' }); }}
+                />
+              </section>
+            )}
+            {selectedPage === "photos" && (
+              <PhotosPage
+                photos={photos}
+                onAddPhoto={photo => setPhotos(prev => [...prev, photo])}
+              />
+            )}
           </>
         )}
       </main>
